@@ -13,10 +13,7 @@ import {
   Restaurant as ChefIcon,
 } from '@mui/icons-material';
 
-/**
- * Exit confirmation dialog component
- */
-const ExitDialog = ({ open, onClose, onConfirm }) => {
+const ExitDialog = ({ open = false, onClose = () => {}, onConfirm = () => {} }) => {
   return (
     <Dialog
       open={open}
@@ -31,13 +28,7 @@ const ExitDialog = ({ open, onClose, onConfirm }) => {
       }}
     >
       <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            mb: 2,
-          }}
-        >
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
           <Box
             sx={{
               width: 64,
@@ -59,8 +50,7 @@ const ExitDialog = ({ open, onClose, onConfirm }) => {
 
       <DialogContent sx={{ textAlign: 'center', pb: 2 }}>
         <Typography variant="body1" color="text.secondary">
-          Are you sure you want to exit Chef Al-Smart? Your unsaved progress
-          will be lost.
+          Are you sure you want to exit Chef Al-Smart?
         </Typography>
       </DialogContent>
 
@@ -69,12 +59,10 @@ const ExitDialog = ({ open, onClose, onConfirm }) => {
           variant="outlined"
           onClick={onClose}
           sx={{
-            minWidth: 120,
+            minWidth: 100,
             borderRadius: 3,
             borderWidth: 2,
-            '&:hover': {
-              borderWidth: 2,
-            },
+            '&:hover': { borderWidth: 2 },
           }}
         >
           Stay
@@ -85,9 +73,8 @@ const ExitDialog = ({ open, onClose, onConfirm }) => {
           onClick={onConfirm}
           startIcon={<ExitIcon />}
           sx={{
-            minWidth: 120,
+            minWidth: 100,
             borderRadius: 3,
-            background: 'linear-gradient(135deg, #D32F2F 0%, #F44336 100%)',
           }}
         >
           Exit
