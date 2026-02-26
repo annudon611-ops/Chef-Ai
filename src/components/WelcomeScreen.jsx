@@ -13,18 +13,15 @@ import {
   ArrowForward as ArrowIcon,
   Language as LanguageIcon,
 } from '@mui/icons-material';
-import { LANGUAGES, APP_NAME, APP_TAGLINE } from '../utils/constants';
 
 /**
  * Welcome Screen Component
- * First screen users see with language selection
  */
-const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
+const WelcomeScreen = ({ onStart, initialLanguage = 'english' }) => {
   const [language, setLanguage] = useState(initialLanguage);
   const [isAnimated, setIsAnimated] = useState(false);
 
   useEffect(() => {
-    // Trigger animations after mount
     const timer = setTimeout(() => setIsAnimated(true), 100);
     return () => clearTimeout(timer);
   }, []);
@@ -36,7 +33,10 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
   };
 
   const handleStart = () => {
-    onStart(language);
+    console.log('Starting with language:', language);
+    if (onStart && typeof onStart === 'function') {
+      onStart(language);
+    }
   };
 
   return (
@@ -50,7 +50,7 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
         overflow: 'hidden',
       }}
     >
-      {/* Decorative Background Elements */}
+      {/* Decorative Background */}
       <Box
         sx={{
           position: 'absolute',
@@ -60,17 +60,6 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
           height: 300,
           borderRadius: '50%',
           background: 'radial-gradient(circle, rgba(46,125,50,0.1) 0%, transparent 70%)',
-        }}
-      />
-      <Box
-        sx={{
-          position: 'absolute',
-          bottom: -50,
-          left: -50,
-          width: 200,
-          height: 200,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(255,152,0,0.1) 0%, transparent 70%)',
         }}
       />
 
@@ -90,9 +79,8 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
             transition: 'all 0.8s ease-out',
           }}
         >
-          {/* Animated Chef Icon */}
+          {/* Chef Icon */}
           <Box
-            className="float"
             sx={{
               width: 120,
               height: 120,
@@ -103,6 +91,11 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
               justifyContent: 'center',
               boxShadow: '0 12px 40px rgba(46, 125, 50, 0.4)',
               mb: 4,
+              animation: 'float 3s ease-in-out infinite',
+              '@keyframes float': {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-15px)' },
+              },
             }}
           >
             <ChefIcon sx={{ fontSize: 64, color: 'white' }} />
@@ -121,7 +114,7 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
               mb: 1,
             }}
           >
-            {APP_NAME}
+            Chef Al-Smart
           </Typography>
 
           {/* Tagline */}
@@ -134,7 +127,7 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
               mb: 4,
             }}
           >
-            {APP_TAGLINE}
+            Your Smart Recipe Companion
           </Typography>
 
           {/* Feature Pills */}
@@ -147,7 +140,7 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
               mb: 4,
             }}
           >
-            {['AI-Powered', 'Home & Restaurant Style', '100% Indian'].map((feature, index) => (
+            {['AI-Powered', 'Home & Restaurant', '100% Indian'].map((feature, index) => (
               <Paper
                 key={feature}
                 elevation={0}
@@ -157,9 +150,6 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
                   borderRadius: 3,
                   backgroundColor: 'rgba(46, 125, 50, 0.1)',
                   border: '1px solid rgba(46, 125, 50, 0.2)',
-                  opacity: isAnimated ? 1 : 0,
-                  transform: isAnimated ? 'translateY(0)' : 'translateY(20px)',
-                  transition: `all 0.6s ease-out ${0.3 + index * 0.1}s`,
                 }}
               >
                 <Typography
@@ -215,11 +205,12 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
                   borderColor: 'primary.light',
                   '&.Mui-selected': {
                     borderColor: 'primary.main',
+                    backgroundColor: 'rgba(46, 125, 50, 0.1)',
                   },
                 },
               }}
             >
-              <ToggleButton value={LANGUAGES.ENGLISH}>
+              <ToggleButton value="english">
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="body1" fontWeight={600}>
                     English
@@ -229,7 +220,7 @@ const WelcomeScreen = ({ onStart, initialLanguage = LANGUAGES.ENGLISH }) => {
                   </Typography>
                 </Box>
               </ToggleButton>
-              <ToggleButton value={LANGUAGES.HINGLISH}>
+              <ToggleButton value="hinglish">
                 <Box sx={{ textAlign: 'center' }}>
                   <Typography variant="body1" fontWeight={600}>
                     Hinglish
