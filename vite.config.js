@@ -43,21 +43,7 @@ export default defineConfig({
             purpose: 'maskable'
           }
         ],
-        categories: ['food', 'lifestyle', 'utilities'],
-        screenshots: [
-          {
-            src: 'screenshot-wide.png',
-            sizes: '1280x720',
-            type: 'image/png',
-            form_factor: 'wide'
-          },
-          {
-            src: 'screenshot-narrow.png',
-            sizes: '720x1280',
-            type: 'image/png',
-            form_factor: 'narrow'
-          }
-        ]
+        categories: ['food', 'lifestyle', 'utilities']
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
@@ -66,8 +52,7 @@ export default defineConfig({
             urlPattern: /^https:\/\/openrouter\.ai\/api\/.*/i,
             handler: 'NetworkOnly',
             options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 30
+              cacheName: 'api-cache'
             }
           },
           {
@@ -83,11 +68,25 @@ export default defineConfig({
                 statuses: [0, 200]
               }
             }
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'gstatic-fonts-cache',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           }
         ]
       },
       devOptions: {
-        enabled: true
+        enabled: false
       }
     })
   ],
