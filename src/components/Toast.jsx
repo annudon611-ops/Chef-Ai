@@ -1,37 +1,37 @@
 import React from 'react';
 import { Snackbar, Alert, Slide } from '@mui/material';
 
-/**
- * Slide transition for toast
- */
 function SlideTransition(props) {
   return <Slide {...props} direction="up" />;
 }
 
-/**
- * Toast component for showing notifications
- */
 const Toast = ({
-  open,
-  message,
+  open = false,
+  message = '',
   severity = 'info',
   duration = 3000,
-  onClose,
-  position = { vertical: 'bottom', horizontal: 'center' },
+  onClose = () => {},
 }) => {
+  const handleClose = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    onClose();
+  };
+
   return (
     <Snackbar
       open={open}
       autoHideDuration={duration}
-      onClose={onClose}
-      anchorOrigin={position}
+      onClose={handleClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       TransitionComponent={SlideTransition}
       sx={{
         bottom: { xs: 80, sm: 24 },
       }}
     >
       <Alert
-        onClose={onClose}
+        onClose={handleClose}
         severity={severity}
         variant="filled"
         sx={{
@@ -39,9 +39,6 @@ const Toast = ({
           borderRadius: 3,
           fontWeight: 500,
           boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
-          '& .MuiAlert-icon': {
-            fontSize: 24,
-          },
         }}
       >
         {message}
