@@ -19,8 +19,8 @@ import {
   ArrowBack as BackIcon,
   ArrowForward as ForwardIcon,
   Add as AddIcon,
-  Eco as VegIcon,
-  Restaurant as NonVegIcon,
+  Grass as VegIcon,
+  SetMeal as NonVegIcon,
   Clear as ClearIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
@@ -62,7 +62,7 @@ const IngredientInputScreen = ({ onNext, onBack, initialData = {} }) => {
   const handleDietTypeChange = (event, newType) => {
     if (newType !== null) {
       setDietType(newType);
-      setIngredients([]); // Clear ingredients when switching diet type
+      setIngredients([]);
       setError('');
       setInputValue('');
     }
@@ -84,7 +84,6 @@ const IngredientInputScreen = ({ onNext, onBack, initialData = {} }) => {
       setInputValue('');
       setError('');
 
-      // Focus back to input for next entry
       setTimeout(() => inputRef.current?.focus(), 100);
     },
     [ingredients, dietType]
@@ -335,7 +334,6 @@ const IngredientInputScreen = ({ onNext, onBack, initialData = {} }) => {
                       variant="filled"
                       sx={{
                         fontWeight: 500,
-                        animation: 'chipIn 0.3s ease-out',
                       }}
                     />
                   ))}
