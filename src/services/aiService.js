@@ -1,52 +1,47 @@
 /**
  * AI Service for Chef Al-Smart Recipe Generator
- * Integrates with OpenRouter API using DeepSeek model
  */
 
 const API_ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
-const MODEL = 'tngtech/deepseek-r1t2-chimera:free';
+const MODEL = 'deepseek/deepseek-r1-0528:free';
 
 /**
  * Get API key from environment
- * @returns {string} - API key
- * @throws {Error} - If API key is not configured
  */
 const getApiKey = () => {
   const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
   
-  if (!apiKey || apiKey === 'your_openrouter_api_key_here') {
-    throw new Error('OpenRouter API key is not configured. Please add your API key to the .env file.');
+  if (!apiKey) {
+    console.error('API Key not found in environment variables');
+    throw new Error('API key is not configured. Please contact support.');
   }
   
   return apiKey;
 };
 
 /**
- * Build the system prompt for the AI
- * @param {string} language - 'english' or 'hinglish'
- * @returns {string} - System prompt
+ * Build the system prompt
  */
 const buildSystemPrompt = (language) => {
   const languageInstruction = language === 'hinglish' 
     ? 'Use Hinglish (Hindi words written in English script mixed with English). Do NOT use Devanagari script.'
     : 'Use Professional English only. No regional language scripts.';
 
-  return `You are Chef Al-Smart, a master Indian chef with expertise in both traditional home cooking and high-end restaurant cuisine. You have deep knowledge of Indian spices, cooking techniques, and regional cuisines.
+  return `You are Chef Al-Smart, a master Indian chef with expertise in both traditional home cooking and restaurant cuisine.
 
-CRITICAL RULES:
+RULES:
 1. ${languageInstruction}
 2. NEVER use Devanagari or any non-English script.
 3. Always provide accurate cooking times and nutritional estimates.
-4. Automatically add essential base ingredients (spices, oil, salt) that an Indian kitchen would have.
-5. Adjust recipes based on the cooking style requested (home vs restaurant).
-6. Be precise with measurements and cooking instructions.
-7. Include professional chef tips.
+4. Automatically add essential base ingredients (spices, oil, salt).
+5. Adjust recipes based on cooking style (home vs restaurant).
+6. Be precise with measurements.
 
-OUTPUT FORMAT (STRICT - DO NOT DEVIATE):
+OUTPUT FORMAT (STRICT):
 
-Title: <Creative Recipe Name>
+Title: <Recipe Name>
 
-Cooking Time: <Estimated time in minutes>
+Cooking Time: <time in minutes>
 
 NUTRITION START
 Calories: <number> kcal
@@ -56,78 +51,50 @@ Fats: <number>g
 NUTRITION END
 
 Ingredients:
-- <ingredient 1 with quantity>
-- <ingredient 2 with quantity>
-(include all auto-added base ingredients)
+- <ingredient with quantity>
+- <ingredient with quantity>
 
 Method:
-1. <Step 1 with clear instructions>
-2. <Step 2 with clear instructions>
-(continue with numbered steps)
+1. <Step 1>
+2. <Step 2>
+3. <Step 3>
 
 Chef Tips:
-- <Professional tip 1>
-- <Professional tip 2>
-(2-3 actionable tips)`;
+- <tip 1>
+- <tip 2>`;
 };
 
 /**
- * Build the user prompt for recipe generation
- * @param {object} params - Recipe parameters
- * @returns {string} - User prompt
+ * Build user prompt
  */
-const buildUserPrompt = ({
-  ingredients,
-  dietType,
-  cookingStyle,
-  recipeDepth,
-}) => {
-  const styleDescription = cookingStyle === 'home' 
-    ? 'simple home-style cooking with moderate spices and easy-to-follow steps, using common household ingredients'
-    : 'restaurant-style cooking with rich flavors, professional techniques, generous use of ghee/butter/cream, and impressive presentation';
+const buildUserPrompt = ({ ingredients, dietType, cookingStyle, recipeDepth }) => {
+  const styleDesc = cookingStyle === 'home' 
+    ? 'simple home-style with moderate spices'
+    : 'rich restaurant-style with bold flavors and ghee/butter';
 
-  const depthDescription = recipeDepth === 'quick'
-    ? 'Keep it concise. Quick overview with essential steps only.'
-    : 'Provide detailed instructions with explanations for each technique.';
+  const depthDesc = recipeDepth === 'quick'
+    ? 'Keep it brief with essential steps only.'
+    : 'Provide detailed step-by-step instructions.';
 
-  const dietDescription = dietType === 'vegetarian'
-    ? 'This is a VEGETARIAN recipe. Do not suggest any meat, fish, or egg alternatives.'
-    : 'This is a NON-VEGETARIAN recipe. Focus on the meat preparation and cooking.';
-
-  return `Create an authentic Indian ${cookingStyle}-style recipe using these main ingredients:
+  return `Create an Indian ${cookingStyle}-style recipe using:
 ${ingredients.map(ing => `- ${ing}`).join('\n')}
 
-Diet Type: ${dietDescription}
+Diet: ${dietType === 'vegetarian' ? 'Vegetarian' : 'Non-Vegetarian'}
+Style: ${styleDesc}
+Detail: ${depthDesc}
 
-Cooking Style: ${styleDescription}
-
-Recipe Detail Level: ${depthDescription}
-
-Remember to:
-1. Auto-add necessary base ingredients (oil/ghee, onions, tomatoes, ginger-garlic, green chilies, common Indian spices)
-2. Adjust spice levels for ${cookingStyle} style (${cookingStyle === 'home' ? 'moderate' : 'bold and rich'})
-3. Estimate accurate cooking time and nutrition
-4. Provide clear, numbered cooking steps
-5. Include 2-3 professional chef tips
-
-Generate the complete recipe now following the exact format specified.`;
+Auto-add base ingredients (oil, onion, tomato, ginger-garlic, spices).
+Follow the exact output format.`;
 };
 
 /**
- * Parse the AI response into structured data
- * @param {string} response - Raw AI response
- * @returns {object} - Parsed recipe object
+ * Parse AI response
  */
 const parseRecipeResponse = (response) => {
   const recipe = {
     title: '',
     cookingTime: '',
-    nutrition: {
-      calories: '',
-      protein: '',
-      carbs: '',
-      fats: '',
-    },
+    nutrition: { calories: 'N/A', protein: 'N/A', carbs: 'N/A', fats: 'N/A' },
     ingredients: [],
     method: [],
     chefTips: [],
@@ -136,78 +103,77 @@ const parseRecipeResponse = (response) => {
 
   try {
     // Extract title
-    const titleMatch = response.match(/Title:\s*(.+?)(?:\n|Cooking Time)/s);
-    if (titleMatch) {
-      recipe.title = titleMatch[1].trim();
-    }
+    const titleMatch = response.match(/Title:\s*(.+?)(?:\n|Cooking)/si);
+    if (titleMatch) recipe.title = titleMatch[1].trim();
 
     // Extract cooking time
-    const timeMatch = response.match(/Cooking Time:\s*(.+?)(?:\n|NUTRITION)/s);
-    if (timeMatch) {
-      recipe.cookingTime = timeMatch[1].trim();
-    }
+    const timeMatch = response.match(/Cooking Time:\s*(.+?)(?:\n|NUTRITION)/si);
+    if (timeMatch) recipe.cookingTime = timeMatch[1].trim();
 
     // Extract nutrition
-    const nutritionMatch = response.match(/NUTRITION START([\s\S]*?)NUTRITION END/);
+    const nutritionMatch = response.match(/NUTRITION START([\s\S]*?)NUTRITION END/i);
     if (nutritionMatch) {
-      const nutritionText = nutritionMatch[1];
+      const nut = nutritionMatch[1];
+      const cal = nut.match(/Calories:\s*(\d+)/i);
+      const pro = nut.match(/Protein:\s*(\d+)/i);
+      const carb = nut.match(/Carbs:\s*(\d+)/i);
+      const fat = nut.match(/Fats:\s*(\d+)/i);
       
-      const caloriesMatch = nutritionText.match(/Calories:\s*(\d+)/);
-      const proteinMatch = nutritionText.match(/Protein:\s*(\d+)/);
-      const carbsMatch = nutritionText.match(/Carbs:\s*(\d+)/);
-      const fatsMatch = nutritionText.match(/Fats:\s*(\d+)/);
-
       recipe.nutrition = {
-        calories: caloriesMatch ? `${caloriesMatch[1]} kcal` : 'N/A',
-        protein: proteinMatch ? `${proteinMatch[1]}g` : 'N/A',
-        carbs: carbsMatch ? `${carbsMatch[1]}g` : 'N/A',
-        fats: fatsMatch ? `${fatsMatch[1]}g` : 'N/A',
+        calories: cal ? `${cal[1]} kcal` : 'N/A',
+        protein: pro ? `${pro[1]}g` : 'N/A',
+        carbs: carb ? `${carb[1]}g` : 'N/A',
+        fats: fat ? `${fat[1]}g` : 'N/A',
       };
     }
 
     // Extract ingredients
-    const ingredientsMatch = response.match(/Ingredients:([\s\S]*?)(?:Method:|Steps:)/);
-    if (ingredientsMatch) {
-      const ingredientLines = ingredientsMatch[1].trim().split('\n');
-      recipe.ingredients = ingredientLines
+    const ingMatch = response.match(/Ingredients:([\s\S]*?)(?:Method:|Steps:)/i);
+    if (ingMatch) {
+      recipe.ingredients = ingMatch[1]
+        .split('\n')
         .map(line => line.replace(/^[-•*]\s*/, '').trim())
         .filter(line => line.length > 0);
     }
 
     // Extract method
-    const methodMatch = response.match(/(?:Method:|Steps:)([\s\S]*?)(?:Chef Tips:|Tips:|$)/);
+    const methodMatch = response.match(/(?:Method:|Steps:)([\s\S]*?)(?:Chef Tips:|Tips:|$)/i);
     if (methodMatch) {
-      const methodLines = methodMatch[1].trim().split('\n');
-      recipe.method = methodLines
+      recipe.method = methodMatch[1]
+        .split('\n')
         .map(line => line.replace(/^\d+\.\s*/, '').trim())
         .filter(line => line.length > 0);
     }
 
-    // Extract chef tips
-    const tipsMatch = response.match(/(?:Chef Tips:|Tips:)([\s\S]*?)$/);
+    // Extract tips
+    const tipsMatch = response.match(/(?:Chef Tips:|Tips:)([\s\S]*?)$/i);
     if (tipsMatch) {
-      const tipLines = tipsMatch[1].trim().split('\n');
-      recipe.chefTips = tipLines
+      recipe.chefTips = tipsMatch[1]
+        .split('\n')
         .map(line => line.replace(/^[-•*]\s*/, '').trim())
         .filter(line => line.length > 0);
     }
 
+    // Fallback if parsing failed
+    if (!recipe.title) recipe.title = 'Delicious Indian Recipe';
+    if (recipe.ingredients.length === 0) {
+      recipe.ingredients = ['Recipe ingredients not parsed correctly'];
+    }
+    if (recipe.method.length === 0) {
+      recipe.method = ['Please see the raw recipe below', response.substring(0, 500)];
+    }
+
   } catch (error) {
-    console.error('Error parsing recipe response:', error);
+    console.error('Parse error:', error);
+    recipe.title = 'Recipe Generated';
+    recipe.method = [response.substring(0, 1000)];
   }
 
   return recipe;
 };
 
 /**
- * Generate a recipe using the AI
- * @param {object} params - Recipe generation parameters
- * @param {Array} params.ingredients - List of ingredients
- * @param {string} params.dietType - 'vegetarian' or 'nonVegetarian'
- * @param {string} params.cookingStyle - 'home' or 'restaurant'
- * @param {string} params.recipeDepth - 'quick' or 'detailed'
- * @param {string} params.language - 'english' or 'hinglish'
- * @returns {Promise<object>} - Generated recipe
+ * Generate recipe using OpenRouter API
  */
 export const generateRecipe = async ({
   ingredients,
@@ -216,175 +182,114 @@ export const generateRecipe = async ({
   recipeDepth,
   language = 'english',
 }) => {
-  const apiKey = getApiKey();
-
-  const systemPrompt = buildSystemPrompt(language);
-  const userPrompt = buildUserPrompt({
-    ingredients,
-    dietType,
-    cookingStyle,
-    recipeDepth,
-  });
-
-  const requestBody = {
-    model: MODEL,
-    messages: [
-      {
-        role: 'system',
-        content: systemPrompt,
-      },
-      {
-        role: 'user',
-        content: userPrompt,
-      },
-    ],
-    temperature: 0.7,
-    max_tokens: 2000,
-    top_p: 0.9,
-  };
+  console.log('Generating recipe with:', { ingredients, dietType, cookingStyle, language });
 
   try {
+    const apiKey = getApiKey();
+    
+    const systemPrompt = buildSystemPrompt(language);
+    const userPrompt = buildUserPrompt({ ingredients, dietType, cookingStyle, recipeDepth });
+
+    console.log('Making API request...');
+
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
         'HTTP-Referer': window.location.origin,
-        'X-Title': 'Chef Al-Smart Recipe Generator',
+        'X-Title': 'Chef Al-Smart',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+      }),
     });
 
+    console.log('API Response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error?.message || 
-        `API request failed with status ${response.status}`
-      );
+      const errorText = await response.text();
+      console.error('API Error:', errorText);
+      
+      if (response.status === 401) {
+        throw new Error('Invalid API key. Please check your configuration.');
+      } else if (response.status === 429) {
+        throw new Error('Too many requests. Please wait and try again.');
+      } else if (response.status === 402) {
+        throw new Error('API credits exhausted. Please add credits.');
+      } else {
+        throw new Error(`API error: ${response.status}`);
+      }
     }
 
     const data = await response.json();
+    console.log('API Response:', data);
 
     if (!data.choices || !data.choices[0]?.message?.content) {
-      throw new Error('Invalid response format from AI');
+      throw new Error('Invalid response from AI');
     }
 
     const rawContent = data.choices[0].message.content;
+    console.log('Raw content:', rawContent.substring(0, 200));
+
     const parsedRecipe = parseRecipeResponse(rawContent);
+    console.log('Parsed recipe:', parsedRecipe);
 
     return {
       success: true,
       recipe: parsedRecipe,
-      usage: data.usage,
     };
 
   } catch (error) {
-    console.error('Recipe generation error:', error);
+    console.error('Generate recipe error:', error);
     
-    // Provide user-friendly error messages
-    let userMessage = 'Failed to generate recipe. Please try again.';
-    
-    if (error.message.includes('API key')) {
-      userMessage = 'API configuration error. Please check your settings.';
-    } else if (error.message.includes('network') || error.name === 'TypeError') {
-      userMessage = 'Network error. Please check your internet connection.';
-    } else if (error.message.includes('rate limit')) {
-      userMessage = 'Too many requests. Please wait a moment and try again.';
-    }
-
     return {
       success: false,
-      error: userMessage,
-      details: error.message,
+      error: error.message || 'Failed to generate recipe. Please try again.',
     };
   }
-};
-
-/**
- * Validate ingredients using AI
- * @param {string} ingredient - Ingredient to validate
- * @param {string} dietType - Expected diet type
- * @returns {Promise<object>} - Validation result
- */
-export const validateIngredientWithAI = async (ingredient, dietType) => {
-  // This is a lightweight validation that can be done locally
-  // For more complex validation, we could use the AI
-  
-  const nonVegKeywords = [
-    'chicken', 'mutton', 'fish', 'prawn', 'egg', 'meat',
-    'lamb', 'crab', 'lobster', 'duck', 'turkey', 'goat',
-    'keema', 'liver', 'brain', 'paya', 'beef', 'pork'
-  ];
-
-  const normalizedIngredient = ingredient.toLowerCase().trim();
-  const isNonVeg = nonVegKeywords.some(keyword => 
-    normalizedIngredient.includes(keyword)
-  );
-
-  if (dietType === 'vegetarian' && isNonVeg) {
-    return {
-      isValid: false,
-      error: `"${ingredient}" is a non-vegetarian item. Please switch to non-veg mode.`,
-      detectedType: 'nonVegetarian',
-    };
-  }
-
-  if (dietType === 'nonVegetarian' && !isNonVeg) {
-    return {
-      isValid: false,
-      error: `"${ingredient}" appears to be vegetarian. In non-veg mode, please add meat/fish/egg items.`,
-      detectedType: 'vegetarian',
-    };
-  }
-
-  return {
-    isValid: true,
-    error: null,
-    detectedType: isNonVeg ? 'nonVegetarian' : 'vegetarian',
-  };
 };
 
 /**
  * Format recipe for sharing
- * @param {object} recipe - Recipe object
- * @returns {string} - Formatted text for sharing
  */
 export const formatRecipeForSharing = (recipe) => {
-  let text = `🍳 *${recipe.title}*\n`;
-  text += `⏱️ Cooking Time: ${recipe.cookingTime}\n\n`;
+  if (!recipe) return 'No recipe available';
 
-  text += `📊 *Nutrition Info:*\n`;
-  text += `• Calories: ${recipe.nutrition.calories}\n`;
-  text += `• Protein: ${recipe.nutrition.protein}\n`;
-  text += `• Carbs: ${recipe.nutrition.carbs}\n`;
-  text += `• Fats: ${recipe.nutrition.fats}\n\n`;
+  let text = `🍳 *${recipe.title || 'Recipe'}*\n`;
+  text += `⏱️ ${recipe.cookingTime || '30-40 mins'}\n\n`;
+
+  text += `📊 *Nutrition:*\n`;
+  text += `• Calories: ${recipe.nutrition?.calories || 'N/A'}\n`;
+  text += `• Protein: ${recipe.nutrition?.protein || 'N/A'}\n`;
+  text += `• Carbs: ${recipe.nutrition?.carbs || 'N/A'}\n`;
+  text += `• Fats: ${recipe.nutrition?.fats || 'N/A'}\n\n`;
 
   text += `🥘 *Ingredients:*\n`;
-  recipe.ingredients.forEach(ing => {
+  (recipe.ingredients || []).forEach(ing => {
     text += `• ${ing}\n`;
   });
 
   text += `\n👨‍🍳 *Method:*\n`;
-  recipe.method.forEach((step, index) => {
-    text += `${index + 1}. ${step}\n`;
+  (recipe.method || []).forEach((step, i) => {
+    text += `${i + 1}. ${step}\n`;
   });
 
-  if (recipe.chefTips.length > 0) {
+  if (recipe.chefTips?.length > 0) {
     text += `\n💡 *Chef Tips:*\n`;
     recipe.chefTips.forEach(tip => {
       text += `• ${tip}\n`;
     });
   }
 
-  text += `\n---\n`;
-  text += `Generated by Chef Al-Smart 🧑‍🍳\n`;
-  text += `Your Smart Recipe Companion`;
-
+  text += `\n---\nGenerated by Chef Al-Smart 🧑‍🍳`;
   return text;
 };
 
-export default {
-  generateRecipe,
-  validateIngredientWithAI,
-  formatRecipeForSharing,
-};
+export default { generateRecipe, formatRecipeForSharing };
