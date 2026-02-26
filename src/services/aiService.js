@@ -1,50 +1,40 @@
-/**
- * Chef Al-Smart AI Service
- * OpenRouter Integration - Production Safe
- */
-
 const API_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
-
-// ✅ Stable working model
 const MODEL = "deepseek/deepseek-chat";
 
-/**
- * Get API Key from Vite environment
- */
 const getApiKey = () => {
   const key = import.meta.env.VITE_OPENROUTER_API_KEY;
-
   if (!key) {
-    throw new Error("API key not configured in environment variables.");
+    throw new Error("API key not configured.");
   }
-
   return key;
 };
 
-/**
- * Build system prompt
- */
-const buildSystemPrompt = (language) => {
+const buildPrompt = ({
+  ingredients,
+  dietType,
+  cookingStyle,
+  recipeDepth,
+  language,
+}) => {
   const langRule =
     language === "hinglish"
-      ? "Use Hinglish (Hindi words in English script only). Do NOT use Devanagari."
+      ? "Use Hinglish (Hindi words written in English script only)."
       : "Use Professional English only.";
 
   return `
-You are Chef Al-Smart, a master Indian chef.
+You are Chef Al-Smart.
 
-STRICT RULES:
-1. ${langRule}
-2. Never use non-English scripts.
-3. Auto-add oil, spices, onion, ginger-garlic.
-4. Adjust spice level based on cooking style.
-5. Follow output format EXACTLY.
+RULES:
+- ${langRule}
+- Auto add oil, spices, onion, garlic.
+- Adjust spice for ${cookingStyle} style.
+- Follow exact format below.
 
 FORMAT:
 
 Title: <Recipe Name>
 
-Cooking Time: <time in minutes>
+Cooking Time: <Time>
 
 NUTRITION START
 Calories: <number> kcal
@@ -57,48 +47,93 @@ Ingredients:
 - item
 
 Method:
-1. Step
+1. step
 
 Chef Tips:
 - tip
-`;
-};
 
-/**
- * Build user prompt
- */
-const buildUserPrompt = ({ ingredients, dietType, cookingStyle, recipeDepth }) => {
-  return `
-Create an Indian ${cookingStyle} style recipe using:
-
-${ingredients.map((i) => `- ${i}`).join("\n")}
+User Ingredients:
+${ingredients.join(", ")}
 
 Diet Type: ${dietType}
 Detail Level: ${recipeDepth}
-
-Follow exact output format.
 `;
 };
 
-/**
- * Parse AI response safely
- */
 const parseRecipe = (text) => {
-  return {
-    raw: text,
+  const recipe = {
+    title: "",
+    cookingTime: "",
+    nutrition: {
+      calories: "",
+      protein: "",
+      carbs: "",
+      fats: "",
+    },
+    ingredients: [],
+    method: [],
+    chefTips: [],
   };
+
+  try {
+    const titleMatch = text.match(/Title:\s*(.+)/i);
+    if (titleMatch) recipe.title = titleMatch[1].trim();
+
+    const timeMatch = text.match(/Cooking Time:\s*(.+)/i);
+    if (timeMatch) recipe.cookingTime = timeMatch[1].trim();
+
+    const nutritionMatch = text.match(
+      /NUTRITION START([\s\S]*?)NUTRITION END/i
+    );
+    if (nutritionMatch) {
+      const nut = nutritionMatch[1];
+      recipe.nutrition.calories =
+        nut.match(/Calories:\s*(.+)/i)?.[1] || "";
+      recipe.nutrition.protein =
+        nut.match(/Protein:\s*(.+)/i)?.[1] || "";
+      recipe.nutrition.carbs =
+        nut.match(/Carbs:\s*(.+)/i)?.[1] || "";
+      recipe.nutrition.fats =
+        nut.match(/Fats:\s*(.+)/i)?.[1] || "";
+    }
+
+    const ingredientsMatch = text.match(
+      /Ingredients:([\s\S]*?)Method:/i
+    );
+    if (ingredientsMatch) {
+      recipe.ingredients = ingredientsMatch[1]
+        .split("\n")
+        .map((l) => l.replace("-", "").trim())
+        .filter((l) => l.length > 0);
+    }
+
+    const methodMatch = text.match(
+      /Method:([\s\S]*?)Chef Tips:/i
+    );
+    if (methodMatch) {
+      recipe.method = methodMatch[1]
+        .split("\n")
+        .map((l) => l.replace(/^\d+\./, "").trim())
+        .filter((l) => l.length > 0);
+    }
+
+    const tipsMatch = text.match(/Chef Tips:([\s\S]*)/i);
+    if (tipsMatch) {
+      recipe.chefTips = tipsMatch[1]
+        .split("\n")
+        .map((l) => l.replace("-", "").trim())
+        .filter((l) => l.length > 0);
+    }
+
+    if (!recipe.title) recipe.title = "Delicious Indian Recipe";
+  } catch (err) {
+    console.error("Parsing error:", err);
+  }
+
+  return recipe;
 };
 
-/**
- * Generate Recipe
- */
-export const generateRecipe = async ({
-  ingredients,
-  dietType,
-  cookingStyle,
-  recipeDepth,
-  language,
-}) => {
+export const generateRecipe = async (data) => {
   try {
     const apiKey = getApiKey();
 
@@ -114,43 +149,34 @@ export const generateRecipe = async ({
         model: MODEL,
         messages: [
           {
-            role: "system",
-            content: buildSystemPrompt(language),
-          },
-          {
             role: "user",
-            content: buildUserPrompt({
-              ingredients,
-              dietType,
-              cookingStyle,
-              recipeDepth,
-            }),
+            content: buildPrompt(data),
           },
         ],
         temperature: 0.7,
-        max_tokens: 1500,
       }),
     });
 
     if (!response.ok) {
       const err = await response.text();
-      throw new Error(`API Error ${response.status}: ${err}`);
+      throw new Error(err);
     }
 
-    const data = await response.json();
-
-    const content = data?.choices?.[0]?.message?.content;
+    const result = await response.json();
+    const content = result?.choices?.[0]?.message?.content;
 
     if (!content) {
-      throw new Error("Invalid AI response");
+      throw new Error("Invalid AI response.");
     }
+
+    const parsed = parseRecipe(content);
 
     return {
       success: true,
-      recipe: parseRecipe(content),
+      recipe: parsed,
     };
   } catch (error) {
-    console.error("Recipe Generation Failed:", error);
+    console.error("Recipe error:", error);
     return {
       success: false,
       error: error.message,
@@ -158,9 +184,19 @@ export const generateRecipe = async ({
   }
 };
 
-/**
- * Share format
- */
 export const formatRecipeForSharing = (recipe) => {
-  return recipe?.raw || "No recipe available";
+  return `
+${recipe.title}
+
+Cooking Time: ${recipe.cookingTime}
+
+Ingredients:
+${recipe.ingredients.join("\n")}
+
+Method:
+${recipe.method.join("\n")}
+
+Chef Tips:
+${recipe.chefTips.join("\n")}
+`;
 };
